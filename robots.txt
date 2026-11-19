@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cloudbhansali-boop.github.io/sitemap.xml
+Sitemap: https://rjgopalgurjar.github.io/sitemap.xml

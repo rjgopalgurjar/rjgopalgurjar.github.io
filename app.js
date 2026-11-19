@@ -8,7 +8,7 @@
   let focus = 'business';
   let stage = 0;
   const modes = {
-    business: {color:'#397e83', rgb:[28,116,204], summary:'Customer coordination · Sales · Meta campaigns', steps:[['Start with the requirement.','Understand the customer’s requirements and keep communication clear.'],['Keep the conversation moving.','Coordinate customer communication, sales conversations and everyday email workflows.'],['Connect the next steps.','Support daily operations and stay in touch as requirements move forward.']]},
+    business: {color:'#397e83', rgb:[28,116,204], summary:'Customer coordination · Sales · Meta campaigns', steps:[['Start with the requirement.','Understand the customer’s requirements and keep communication clear.'],['Keep the conversation moving.','Coordinate customer conversations, supply chain requirements, sales and everyday email workflows.'],['Connect the next steps.','Support daily operations and stay in touch as requirements move forward.']]},
     operations: {color:'#648c59', rgb:[36,127,168], summary:'Tally Expert · Accounts · SAP portals · Dispatch', steps:[['Check the details.','Review purchase requirements and the supporting import and domestic documentation.'],['Connect the moving parts.','Work across Tally, accounts, SAP portals, inventory and dispatch coordination.'],['Follow the paperwork through.','Check Bills of Entry and taxation details as part of import and customs document review.']]},
     digital: {color:'#8874a8', rgb:[99,99,185], summary:'Web development · Coding · CMD & PowerShell', steps:[['Find the useful solution.','Understand what a website, digital workflow or technical issue needs to achieve.'],['Build and troubleshoot.','Bring together web development, coding and practical computer troubleshooting.'],['Keep it working.','Support websites and email workflows, and troubleshoot using CMD and PowerShell.']]}
   };
@@ -18,9 +18,10 @@
     $('#step-title').textContent = current[0];
     $('#step-description').textContent = current[1];
     $('.workflow').dataset.stage = String(stage);
+    if(!paused&&!reducedMotion.matches) ['#step-title','#step-description'].forEach(selector=>$(selector).animate([{opacity:.2,transform:'translateY(5px)'},{opacity:1,transform:'none'}],{duration:300,easing:'ease-out'}));
     $$('[data-step]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.step) === stage)));
   }
-  function setFocus(mode) {
+  function setFocus(mode, {automatic=false}={}) {
     if (!modes[mode]) return;
     focus = mode;
     document.documentElement.style.setProperty('--accent', modes[mode].color);
@@ -34,12 +35,14 @@
     });
     $$('.work-panel').forEach(panel => {
       panel.hidden = panel.id !== `panel-${mode}`;
-      if(!panel.hidden&&!paused) panel.animate([{opacity:.25,transform:'translateY(7px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
+      if(!panel.hidden&&!paused&&!reducedMotion.matches) panel.animate([{opacity:.25,transform:'translateY(7px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
     });
-    showStage(0);
+    showStage(automatic?stage:0);
+    if(!automatic)autoSlides?.restart();
     particleScene?.draw();
   }
   let particleScene = null;
+  let autoSlides = null;
   $$('[data-focus]').forEach(button => button.addEventListener('click', () => setFocus(button.dataset.focus)));
   const tabs = $$('.work-tabs [role=tab]');
   tabs.forEach((button,index) => button.addEventListener('keydown', event => {
@@ -53,7 +56,7 @@
     setFocus(tabs[next].dataset.focus);
     tabs[next].focus();
   }));
-  $$('[data-step]').forEach(button => button.addEventListener('click', () => showStage(Number(button.dataset.step))));
+  $$('[data-step]').forEach(button => button.addEventListener('click', () => {showStage(Number(button.dataset.step));autoSlides?.restartWorkflow();}));
   setFocus('business');
 
   const menu = $('#mobile-menu');
@@ -186,7 +189,7 @@
       });
       const count=small?1050:points.length;
       for(let i=0;i<count;i++){
-        const p=points[i],position=project(p.lat,p.phi,p.spread);
+        const p=points[i],position=project(p.lat,p.phi+time*.28,p.spread);
         let px=position.x,py=position.y;
         if(hover&&!paused){
           const dx=px-cursorX,dy=py-cursorY,distance=Math.hypot(dx,dy),radius=Math.min(125,width*.22);
@@ -253,15 +256,41 @@
   const motionButton=$('.motion-toggle');
   function updateMotion() {
     motionButton.setAttribute('aria-pressed',String(paused));
-    motionButton.setAttribute('aria-label',paused?'Play animation':'Pause animation');
-    motionButton.title=paused?'Play animation':'Pause animation';
+    motionButton.setAttribute('aria-label',paused?'Play animation and slides':'Pause animation and slides');
+    motionButton.title=paused?'Play animation and slides':'Pause animation and slides';
     motionButton.innerHTML=paused?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 6 9 6-9 6Z"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>';
     document.documentElement.classList.toggle('motion-paused',paused);
     particleScene?.resume();
+    autoSlides?.sync();
   }
   motionButton.addEventListener('click',()=>{paused=!paused;updateMotion();});
   reducedMotion.addEventListener('change',event=>{paused=event.matches;updateMotion();});
   updateMotion();
+
+  function createAutoSlides(){
+    const bench=$('.workbench');
+    let panelTimer=0,workflowTimer=0,inView=false,hovered=false;
+    const order=['business','operations','digital'];
+    const eligible=()=>!paused&&!reducedMotion.matches&&!document.hidden&&inView&&!hovered&&!bench.contains(document.activeElement);
+    function schedulePanel(){
+      if(!eligible())return;
+      panelTimer=setTimeout(()=>{if(!eligible())return;setFocus(order[(order.indexOf(focus)+1)%order.length],{automatic:true});schedulePanel();},15000);
+    }
+    function scheduleWorkflow(){
+      if(!eligible())return;
+      workflowTimer=setTimeout(()=>{if(!eligible())return;showStage((stage+1)%3);scheduleWorkflow();},12000);
+    }
+    function restart(){clearTimeout(panelTimer);clearTimeout(workflowTimer);panelTimer=0;workflowTimer=0;schedulePanel();scheduleWorkflow();}
+    function restartWorkflow(){clearTimeout(workflowTimer);workflowTimer=0;scheduleWorkflow();}
+    bench.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse'){hovered=true;restart();}});
+    bench.addEventListener('pointerleave',event=>{if(event.pointerType==='mouse'){hovered=false;restart();}});
+    bench.addEventListener('focusin',restart);
+    bench.addEventListener('focusout',()=>setTimeout(restart,0));
+    document.addEventListener('visibilitychange',restart);
+    new IntersectionObserver(entries=>{inView=entries[0].isIntersecting&&entries[0].intersectionRatio>=.2;restart();},{threshold:[0,.2]}).observe(bench);
+    return{sync:restart,restart,restartWorkflow};
+  }
+  autoSlides=createAutoSlides();
 
   // Pointer polish stays local to the element and leaves normal touch scrolling intact.
   const finePointer=matchMedia('(hover: hover) and (pointer: fine)');
@@ -280,6 +309,6 @@
     element.addEventListener('pointerleave',()=>{cancelAnimationFrame(frame);frame=0;element.classList.remove('pointer-active');element.style.setProperty('--tilt-x','0deg');element.style.setProperty('--tilt-y','0deg');});
   });
   $$('.career-entry').forEach(entry=>entry.addEventListener('toggle',()=>{
-    if(entry.open&&!paused)entry.querySelector('.career-body').animate([{opacity:0,transform:'translateY(-5px)'},{opacity:1,transform:'none'}],{duration:240,easing:'ease-out'});
+    if(entry.open&&!paused&&!reducedMotion.matches)entry.querySelector('.career-body').animate([{opacity:0,transform:'translateY(-5px)'},{opacity:1,transform:'none'}],{duration:240,easing:'ease-out'});
   }));
 })();

@@ -1,6 +1,6 @@
 # Gopal Gurjar — personal website
 
-Published with GitHub Pages at https://cloudbhansali-boop.github.io/ .
+Published with GitHub Pages at https://rjgopalgurjar.github.io/ .
 
 Static HTML, CSS and JavaScript. No backend, package installation or paid domain is required. Publish the main branch root through Settings > Pages.
 
