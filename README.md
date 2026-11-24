@@ -1,17 +1,17 @@
-# Gopal Gurjar — portfolio v2
+# Gopal Gurjar — personal portfolio
 
-Public website: https://rjgopalgurjar.github.io/
+Live website: https://rjgopalgurjar.github.io/
 
-A zero-build static portfolio. Publish the main branch root with GitHub Pages.
+Buildless HTML, CSS and JavaScript, published from the main branch root on GitHub Pages. Open index.html through a static HTTP server to preview. The active presentation files are editorial.css and editorial.js. Existing legacy files are retained for history but are not loaded by the page.
 
-The interface uses HTML, CSS and vanilla JavaScript, local Space Grotesk, Inter and JetBrains Mono fonts, a subset of Lucide SVG icons, GSAP and ScrollTrigger. Dependency versions are recorded in dependencies.json. Font and icon licences are included; the GSAP files retain their original licence headers and https://gsap.com/standard-license/ link.
+The portfolio presents marketing, accounts, customer coordination and operations experience alongside web development and digital work. The three employment entries, titles and dates are retained from the previously published site. Education is omitted. No clients, projects, qualifications, results or metrics have been invented.
 
-The developer-focused hero combines the recognisable Meta silhouette, Shopify Expert and Google Ads elements, with pointer/touch tilt, moving particles and five-second focus changes. The profile portrait sits directly beneath the visual, alongside the requested B2C scaling expert positioning. The SVGs stay sharp at all viewport sizes; motion preferences and pause controls are respected. Platform logos identify context; no partnership or certification is claimed. See brand-asset-notice.txt for sources.
+Existing portraits, platform logos, fonts, icon assets, public LinkedIn link, Google verification token and canonical URL are retained. Instagram, Facebook and repository links remain omitted. Platform marks describe digital-work context and do not imply certification or affiliation.
 
-Capability demos, project scope choices, a five-second workflow sequence, career shortcuts and location controls make the sections explorable. Project choices feed into the contact draft. Scroll reveals, a reading-progress line, responsive navigation, theme controls and the keyboard command palette work throughout the page. The self-referential featured website card, Instagram, Facebook and repository links have been removed. Confirmed career history remains below the developer-focused opening.
+Interactions include skill filters, keyboard-accessible code notes, a compact platform preview, native career disclosures, a shared enquiry composer, email and WhatsApp drafts, theme and motion preferences, quick navigation and in-page navigation. No messages are automatically sent and no enquiries are stored or transmitted to a backend.
 
-The default theme is light. The theme preference is stored locally. Reduced-motion preferences are respected, and all motion can be paused. The command palette opens with Ctrl+K or Cmd+K. The contact composer prepares a draft; it never sends messages or stores enquiries. Public contact links are assembled on interaction to reduce basic static scraping, which is not complete spam protection.
+Body copy remains steady. Section reveals are short and happen once. The platform animation is opt-in; pointer and keyboard responses respect reduced motion. All information remains readable without animation.
 
-Career facts use confirmed dates and responsibilities, with no invented results or intermediate role dates. Education is omitted. The original Search Console verification token is retained. The page includes canonical and social metadata, ProfilePage/Person and WebSite structured data, robots.txt and sitemap.xml. Search ranking and indexing are controlled by Google.
+Fonts and icons are self-hosted; their licence files are retained. The site uses Space Grotesk, Inter, JetBrains Mono and the existing Lucide SVG subset. No third-party JavaScript runtime is required.
 
-Hosting remains GitHub Free with a public repository. Making this repository private on GitHub Free would unpublish GitHub Pages; that change has not been made. Public front-end files can always be inspected by a website visitor.
+Hosting remains GitHub Free with a public repository. SEO metadata, ProfilePage/Person and WebSite structured data, robots.txt and sitemap.xml are included. Indexing and ranking are controlled by search engines.
