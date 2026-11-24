@@ -1,391 +1,768 @@
 'use strict';
 (() => {
-  document.documentElement.classList.add('js');
-  const $ = selector => document.querySelector(selector);
-  const $$ = selector => [...document.querySelectorAll(selector)];
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  let paused = reducedMotion.matches;
-  let focus = 'business';
-  let stage = 0;
-  let workflowFocus = 'business';
-  let scrollJourney = null;
-  const modes = {
-    business: {color:'#397e83', rgb:[28,116,204], summary:'Customer coordination · Sales · Meta campaigns', steps:[['Start with the requirement.','Understand the customer’s requirements and keep communication clear.'],['Keep the conversation moving.','Coordinate customer conversations, supply chain requirements, sales and everyday email workflows.'],['Connect the next steps.','Support daily operations and stay in touch as requirements move forward.']]},
-    operations: {color:'#648c59', rgb:[36,127,168], summary:'Tally Expert · Accounts · SAP portals · Dispatch', steps:[['Check the details.','Review purchase requirements and the supporting import and domestic documentation.'],['Connect the moving parts.','Work across Tally, accounts, SAP portals, inventory and dispatch coordination.'],['Follow the paperwork through.','Check Bills of Entry and taxation details as part of import and customs document review.']]},
-    digital: {color:'#8874a8', rgb:[99,99,185], summary:'Web development · Coding · CMD & PowerShell', steps:[['Find the useful solution.','Understand what a website, digital workflow or technical issue needs to achieve.'],['Build and troubleshoot.','Bring together web development, coding and practical computer troubleshooting.'],['Keep it working.','Support websites and email workflows, and troubleshoot using CMD and PowerShell.']]}
-  };
-  function showStage(index) {
-    stage = index;
-    const current = modes[workflowFocus].steps[stage];
-    $('#step-title').textContent = current[0];
-    $('#step-description').textContent = current[1];
-    $('.workflow').dataset.stage = String(stage);
-    $('.workflow').dataset.area = workflowFocus;
-    const labels = {business:'Marketing & sales',operations:'Accounts & operations',digital:'Digital & coding'};
-    $('.workflow-footnote').textContent = labels[workflowFocus];
-    if(!paused&&!reducedMotion.matches) ['#step-title','#step-description'].forEach(selector=>$(selector).animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:480,easing:'cubic-bezier(.2,.7,.2,1)'}));
-    $$('[data-step]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.step) === stage)));
+  const $ = (selector, parent = document) => parent.querySelector(selector);
+  const $$ = (selector, parent = document) => Array.from(parent.querySelectorAll(selector));
+  const root = document.documentElement;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+  const state = { theme: root.dataset.theme || 'light', filter: 'all', inspector: 'profile', track: 'hiring', note: '', motion: !reduced.matches, webKind: 'business', campaignGoal: 'enquiries' };
+  const canMove = () => state.motion && !reduced.matches;
+  let toastTimer = 0;
+  let refreshTimer = 0;
+
+  function toast(message) {
+    const element = $('#toast');
+    element.textContent = message;
+    element.classList.add('show');
+    $$('[data-feedback]').forEach(item => { item.textContent = message; });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => element.classList.remove('show'), 3200);
   }
-  function setFocus(mode, {automatic=false}={}) {
-    if (!modes[mode]) return;
-    focus = mode;
-    document.documentElement.style.setProperty('--accent', modes[mode].color);
-    $('#hero-focus').textContent = modes[mode].summary;
-    $$('[data-focus]').forEach(button => {
-      const active = button.dataset.focus === mode;
-      if (button.getAttribute('role') === 'tab') {
-        button.setAttribute('aria-selected', String(active));
-        button.tabIndex = active ? 0 : -1;
-      } else button.setAttribute('aria-pressed', String(active));
-    });
-    $$('.work-panel').forEach(panel => {
-      const active = panel.id === `panel-${mode}`;
-      panel.hidden = false;
-      panel.classList.toggle('is-active',active);
-      panel.setAttribute('aria-hidden',String(!active));
-      panel.inert = !active;
-    });
-    if(!automatic){workflowFocus=mode;showStage(0);}
-    if(!automatic)autoSlides?.restart();
-    particleScene?.draw();
+
+  async function copy(text, message) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(message);
+    } catch {
+      const field = document.createElement('textarea');
+      const previous = document.activeElement;
+      field.value = text;
+      field.style.cssText = 'position:fixed;left:-9999px;top:0';
+      const host = $('dialog[open]') || document.body;
+      host.append(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (previous && previous.focus) previous.focus({ preventScroll: true });
+      toast(copied ? message : 'Copy is unavailable. Please select the text or use a contact button.');
+    }
   }
-  let particleScene = null;
-  let autoSlides = null;
-  $$('[data-focus]').forEach(button => button.addEventListener('click', () => setFocus(button.dataset.focus)));
-  const tabs = $$('.work-tabs [role=tab]');
-  tabs.forEach((button,index) => button.addEventListener('keydown', event => {
-    let next;
-    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
-    else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = tabs.length - 1;
-    else return;
-    event.preventDefault();
-    setFocus(tabs[next].dataset.focus);
-    tabs[next].focus();
-  }));
-  $$('[data-step]').forEach(button => button.addEventListener('click', () => {showStage(Number(button.dataset.step));autoSlides?.restartWorkflow();}));
-  setFocus('business');
+
+  function contact() {
+    return {
+      email: ['Gopal1', 'gurjar'].join('') + '@' + ['gmail', 'com'].join('.'),
+      phone: ['91', '86900', '62046'].join('')
+    };
+  }
+
+  function icon(name) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'icon');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', './icons-v2.svg#' + name);
+    svg.append(use);
+    return svg;
+  }
+
+  function refreshScroll() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      if (window.ScrollTrigger) ScrollTrigger.refresh();
+      updateScroll();
+    }, 120);
+  }
 
   const menu = $('#mobile-menu');
   const menuButton = $('.menu-toggle');
-  function closeMenu() { menu.hidden = true; menuButton.setAttribute('aria-expanded','false'); menuButton.setAttribute('aria-label','Open menu'); }
+  function closeMenu() {
+    menu.hidden = true;
+    menuButton.setAttribute('aria-expanded', 'false');
+    menuButton.setAttribute('aria-label', 'Open navigation');
+    $('use', menuButton).setAttribute('href', './icons-v2.svg#menu');
+  }
   menuButton.addEventListener('click', () => {
-    const open = menuButton.getAttribute('aria-expanded') !== 'true';
-    menu.hidden = !open;
-    menuButton.setAttribute('aria-expanded', String(open));
-    menuButton.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    const opening = menu.hidden;
+    menu.hidden = !opening;
+    menuButton.setAttribute('aria-expanded', String(opening));
+    menuButton.setAttribute('aria-label', opening ? 'Close navigation' : 'Open navigation');
+    $('use', menuButton).setAttribute('href', './icons-v2.svg#' + (opening ? 'x' : 'menu'));
   });
-  $$('#mobile-menu a').forEach(link => link.addEventListener('click',closeMenu));
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { closeMenu(); menuButton.focus(); } });
-  matchMedia('(min-width: 601px)').addEventListener('change', event => { if (event.matches) closeMenu(); });
-  $$('.about-copy > .eyebrow,.about-copy > h2,.about-copy > p:not(.eyebrow),.about-facts > div,.career-entry').forEach((element,index)=>{
-    element.classList.add('reveal');
-    element.dataset.reveal = 'up';
-    element.style.setProperty('--reveal-delay',`${Math.min(index%5*65,195)}ms`);
+  $$('#mobile-menu a').forEach(link => link.addEventListener('click', closeMenu));
+  document.addEventListener('pointerdown', event => {
+    if (!menu.hidden && !$('.site-header').contains(event.target)) closeMenu();
   });
-  const reveals = $$('.reveal');
-  if ('IntersectionObserver' in window) {
-    const revealObserver = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in-view'); revealObserver.unobserve(entry.target); } }), {threshold:.08,rootMargin:'0px 0px -24px 0px'});
-    reveals.forEach(element => revealObserver.observe(element));
-      const contactVisibility = new Map();
-      const contactObserver = new IntersectionObserver(entries => {
-        entries.forEach(entry => contactVisibility.set(entry.target,entry.isIntersecting));
-        document.documentElement.classList.toggle('contact-in-view',[...contactVisibility.values()].some(Boolean));
-      });
-      contactObserver.observe($('#contact'));contactObserver.observe($('.footer'));
-      const navigationObserver = new IntersectionObserver(entries => entries.forEach(entry => {
-      if (entry.isIntersecting) $$('.desktop-nav a').forEach(link => link.classList.toggle('active',link.hash === `#${entry.target.id}`));
-    }), {rootMargin:'-20% 0px -55% 0px'});
-    $$('section[id]').forEach(section => navigationObserver.observe(section));
-  } else reveals.forEach(element => element.classList.add('in-view'));
-  let scrollPending = false;
-  function updateProgress() {
-    const total = document.documentElement.scrollHeight - innerHeight;
-    $('.reading-progress').style.transform = `scaleX(${total > 0 ? scrollY / total : 0})`;
-    scrollJourney?.update();
-    scrollPending = false;
-  }
-  addEventListener('scroll', () => { if (!scrollPending) { scrollPending = true; requestAnimationFrame(updateProgress); } }, {passive:true});
-  updateProgress();
+  matchMedia('(min-width: 768px)').addEventListener('change', event => { if (event.matches) closeMenu(); });
 
-  let toastTimer;
-  function toast(message) {
-    $('#toast').textContent = message;
-    $('#toast').classList.add('visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => $('#toast').classList.remove('visible'),3200);
+  function theme(value) {
+    state.theme = value;
+    root.dataset.theme = value;
+    const dark = value === 'dark';
+    $('.theme-toggle').setAttribute('aria-pressed', String(dark));
+    $('.theme-toggle').setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+    $('.theme-toggle use').setAttribute('href', './icons-v2.svg#' + (dark ? 'sun' : 'moon'));
+    $('meta[name="theme-color"]').content = dark ? '#090f1b' : '#f8fafc';
+    try { localStorage.setItem('gopal-theme', value); } catch {}
+    drawCanvas(0);
   }
-  $('.copy-email').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText('Gopal1gurjar@gmail.com'); toast('Email address copied'); }
-    catch { toast('Email: Gopal1gurjar@gmail.com'); }
-  });
-  const dialog = $('#project-dialog');
-  let dialogTrigger;
-  function updateDraft() {
-    const selected = $('#project-service').value;
-    const note = $('#project-note').value.trim();
-    const topic = selected === 'Meta campaign support' ? 'Meta campaign support' : 'a web development project';
-    const message = `Hi Gopal, I’d like to discuss ${topic}.${note ? `\n\n${note}` : ' Let’s connect about the details.'}`;
-    $('#draft-text').textContent = message;
-    $('#project-whatsapp').href = `https://wa.me/918690062046?text=${encodeURIComponent(message)}`;
-    $('#project-email').href = `mailto:Gopal1gurjar@gmail.com?subject=${encodeURIComponent(selected)}&body=${encodeURIComponent(message)}`;
-  }
-  $$('[data-project-service]').forEach(button => button.addEventListener('click', () => {
-    dialogTrigger = button;
-    $('#project-service').value = button.dataset.projectService;
-    updateDraft();
-    dialog.showModal();
-    document.body.classList.add('dialog-open');
-  }));
-  $('.dialog-close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('click', event => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } });
-  dialog.addEventListener('close', () => { document.body.classList.remove('dialog-open'); dialogTrigger?.focus({preventScroll:true}); });
-  $('#project-form').addEventListener('submit', event => event.preventDefault());
-  $('#project-service').addEventListener('change',updateDraft);
-  $('#project-note').addEventListener('input',updateDraft);
-  updateDraft();
+  $('.theme-toggle').addEventListener('click', () => theme(state.theme === 'light' ? 'dark' : 'light'));
 
-  function createParticleScene() {
-    const canvas=$('#particle-field'),ctx=canvas.getContext('2d',{alpha:true});
-    if(!ctx)return null;
-    const holder=$('.particle-stage');
-    let width=0,height=0,small=false,time=0,previous=0,frame=0,visible=true;
-    let pointerX=0,pointerY=0,mouseX=0,mouseY=0;
-    let yaw=0,pitch=0,targetYaw=0,targetPitch=0,drag=null,hover=false;
-    let cursorX=-1000,cursorY=-1000,energy=0;
-    let seed=37;
-    const random=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
-    const points=Array.from({length:2200},()=>({lat:random()*Math.PI*2,phi:random()*Math.PI*2,spread:random()*.14,size:.3+Math.pow(random(),4)*1.45,alpha:.35+random()*.5}));
-    const dust=Array.from({length:44},()=>({x:random(),y:random(),r:random()*.55+.2,a:random()*.15+.05}));
-    function draw(){
-      if(!width||!height)return;
-      ctx.clearRect(0,0,width,height);
-      const rgb=modes[focus].rgb;
-      const centerX=width*.5,centerY=height*(small?.64:.47);
-      const scale=Math.min(height*(small?.18:.255),width*.205);
-      const spin=Math.sin(time*.15)*.17+pointerX*1.2+yaw,tilt=.1+Math.sin(time*.11)*.05+pointerY*.9+pitch;
-      const cosR=Math.cos(spin),sinR=Math.sin(spin),cosT=Math.cos(tilt),sinT=Math.sin(tilt);
-      function project(lat,phi,spread=0){
-        const dx=1.7*Math.cos(phi),dy=1.9*Math.cos(2*phi),length=Math.hypot(dx,dy);
-        const radius=.115+spread*.34;
-        const pulse=1+.018*Math.sin(time*.3+phi*2);
-        const px=1.7*Math.sin(phi)*pulse-dy/length*Math.cos(lat)*radius;
-        const py=.95*Math.sin(2*phi)*pulse+dx/length*Math.cos(lat)*radius;
-        const pz=.42*Math.cos(phi)+Math.sin(lat)*radius;
-        const x=px*cosR+pz*sinR,z=-px*sinR+pz*cosR;
-        const y=py*cosT-z*sinT,depth=py*sinT+z*cosT;
-        const angle=-.06+Math.sin(time*.1)*.025;
-        const xx=x*Math.cos(angle)-y*Math.sin(angle),yy=x*Math.sin(angle)+y*Math.cos(angle);
-        const perspective=6/(6+depth);
-        return{x:centerX+xx*scale*perspective,y:centerY+yy*scale*perspective,z:depth,p:perspective};
-      }
-      const glow=ctx.createRadialGradient(centerX-scale*.3,centerY-scale*.2,0,centerX,centerY,scale*1.9);
-      glow.addColorStop(0,'rgba('+rgb.join(',')+',.085)');glow.addColorStop(.65,'rgba('+rgb.join(',')+',.035)');glow.addColorStop(1,'transparent');
-      ctx.fillStyle=glow;ctx.fillRect(centerX-scale*2,centerY-scale*2,scale*4,scale*4);
-      dust.forEach(p=>{ctx.beginPath();ctx.fillStyle='rgba(91,128,104,'+p.a+')';ctx.arc(p.x*width,p.y*height,p.r,0,Math.PI*2);ctx.fill();});
-      const bands=small?3:4,divisions=small?60:80,segments=[];
-      for(let band=0;band<bands;band++){
-        const lat=band/bands*Math.PI*2;
-        for(let i=0;i<divisions;i++){
-          const a=project(lat,i/divisions*Math.PI*2),b=project(lat,(i+1)/divisions*Math.PI*2);
-          segments.push({a,b,z:(a.z+b.z)/2,band});
+  const filterLabels = { all: 'all capabilities', digital: 'digital and coding', operations: 'accounts and operations', marketing: 'marketing and sales' };
+  function setFilter(value) {
+    if (!Object.hasOwn(filterLabels, value)) return;
+    const cards = $$('.capability');
+    const before = new Map(cards.filter(card => !card.hidden).map(card => [card, card.getBoundingClientRect()]));
+    state.filter = value;
+    $$('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === value)));
+    $('.capability-grid').dataset.filtered = String(value !== 'all');
+    cards.forEach(card => {
+      card.hidden = value !== 'all' && card.dataset.category !== value;
+      if (!card.hidden) {
+        card.style.opacity = '1';
+        card.style.setProperty('--reveal-y', '0px');
+        if (canMove()) {
+          const next = card.getBoundingClientRect();
+          const previous = before.get(card);
+          card.animate([
+            { translate: previous ? (previous.left - next.left) + 'px ' + (previous.top - next.top) + 'px' : '0px 12px', opacity: previous ? .72 : 0 },
+            { translate: '0px 0px', opacity: 1 }
+          ], { duration: 380, easing: 'cubic-bezier(.2,.7,.2,1)' });
         }
       }
-      segments.sort((a,b)=>b.z-a.z);
-      segments.forEach(({a,b,z,band})=>{
-        const front=Math.max(0,Math.min(1,(1.5-z)/3));
-        const alpha=.035+Math.pow(front,1.7)*.13;
-        const shade=band%4===0?rgb.map(v=>Math.min(235,v+24)):rgb;
-        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineCap='round';
-        ctx.lineWidth=.6+front*.5;
-        ctx.strokeStyle='rgba('+shade.join(',')+','+alpha+')';ctx.stroke();
-      });
-      const count=small?1050:points.length;
-      for(let i=0;i<count;i++){
-        const p=points[i],position=project(p.lat,p.phi+time*.28,p.spread);
-        let px=position.x,py=position.y;
-        if(hover&&!paused){
-          const dx=px-cursorX,dy=py-cursorY,distance=Math.hypot(dx,dy),radius=Math.min(125,width*.22);
-          if(distance<radius){const force=Math.pow(1-distance/radius,2)*(22+energy*34);px+=dx/(distance||1)*force;py+=dy/(distance||1)*force;}
-        }
-        const alpha=Math.min(.95,p.alpha*(.7+Math.max(0,(1.7-position.z)/3.2)*.65));
-        ctx.beginPath();ctx.fillStyle='rgba('+rgb.join(',')+','+alpha+')';ctx.arc(px,py,p.size*position.p,0,Math.PI*2);ctx.fill();
-      }
-      canvas.dataset.motion=paused?'paused':'running';
-      canvas.dataset.rotation=yaw.toFixed(2);
-      canvas.dataset.interaction=drag?'dragging':hover?'hover':'idle';
-    }
-    function tick(stamp){
-      frame=0;
-      if(paused||!visible||document.hidden)return;
-      if(stamp-previous>=(small?42:32)){
-        time+=Math.min((stamp-previous)/1000,.06);pointerX+=(mouseX-pointerX)*.12;pointerY+=(mouseY-pointerY)*.12;
-        yaw+=(targetYaw-yaw)*.13;pitch+=(targetPitch-pitch)*.13;energy*=.92;
-        previous=stamp;draw();
-      }
-      frame=requestAnimationFrame(tick);
-    }
-    function resume(){cancelAnimationFrame(frame);frame=0;previous=performance.now();draw();if(!paused&&visible&&!document.hidden)frame=requestAnimationFrame(tick);}
-    function resize(){
-      const rect=holder.getBoundingClientRect();width=rect.width;height=rect.height;small=width<=600;
-      const dpr=Math.min(devicePixelRatio||1,1.5);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);resume();
-    }
-    function locate(event){const rect=holder.getBoundingClientRect();cursorX=event.clientX-rect.left;cursorY=event.clientY-rect.top;hover=cursorX>=0&&cursorX<=width&&cursorY>=0&&cursorY<=height;}
-    $('.hero').addEventListener('pointermove',event=>{
-      if(drag||event.pointerType!=='mouse'||paused)return;
-      locate(event);mouseX=Math.max(-.65,Math.min(.65,(cursorX/width-.5)*2));mouseY=Math.max(-.6,Math.min(.6,(cursorY/height-.5)*1.5));
-    },{passive:true});
-    $('.hero').addEventListener('pointerleave',()=>{if(drag)return;mouseX=0;mouseY=0;hover=false;});
-    holder.addEventListener('pointerdown',event=>{
-      if(event.target.closest('button,a')||event.button>0)return;
-      locate(event);drag={id:event.pointerId,x:event.clientX,y:event.clientY,yaw:targetYaw,pitch:targetPitch,moved:false};
-      holder.setPointerCapture(event.pointerId);holder.classList.add('is-dragging');
-      canvas.dataset.interaction='dragging';
     });
-    holder.addEventListener('pointermove',event=>{
-      if(!drag||event.pointerId!==drag.id)return;
-      locate(event);const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
-      targetYaw=drag.yaw+dx*.012;targetPitch=Math.max(-1.1,Math.min(1.1,drag.pitch+dy*.007));
-      drag.moved=drag.moved||Math.hypot(dx,dy)>5;mouseX=0;mouseY=0;
-      if(paused){yaw=targetYaw;pitch=targetPitch;draw();}
-    },{passive:true});
-    function endDrag(event){
-      if(!drag||event.pointerId!==drag.id)return;
-      if(!drag.moved&&event.type==='pointerup'){targetYaw+=Math.PI/5;energy=1;}
-      if(holder.hasPointerCapture(event.pointerId))holder.releasePointerCapture(event.pointerId);
-      drag=null;holder.classList.remove('is-dragging');
-      if(paused){yaw=targetYaw;pitch=targetPitch;draw();}else resume();
-    }
-    holder.addEventListener('pointerup',endDrag);holder.addEventListener('pointercancel',endDrag);
-    function rotate(){targetYaw+=Math.PI/4;if(paused){yaw=targetYaw;draw();}else resume();}
-    function reset(){targetYaw=0;targetPitch=0;mouseX=0;mouseY=0;hover=false;if(paused){yaw=0;pitch=0;pointerX=0;pointerY=0;draw();}else resume();}
-    $('.scene-rotate').addEventListener('click',rotate);$('.scene-reset').addEventListener('click',reset);
-    new ResizeObserver(resize).observe(holder);
-    new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;resume();}).observe(holder);
-    document.addEventListener('visibilitychange',resume);resize();
-    return{draw,resume};
+    $('#filter-status').textContent = 'Showing ' + filterLabels[value];
+    refreshScroll();
   }
-  particleScene=createParticleScene();
-  const motionButton=$('.motion-toggle');
-  function updateMotion() {
-    motionButton.setAttribute('aria-pressed',String(paused));
-    motionButton.setAttribute('aria-label',paused?'Play animation and slides':'Pause animation and slides');
-    motionButton.title=paused?'Play animation and slides':'Pause animation and slides';
-    motionButton.innerHTML=paused?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 6 9 6-9 6Z"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>';
-    document.documentElement.classList.toggle('motion-paused',paused);
-    particleScene?.resume();
-    autoSlides?.sync();
-    scrollJourney?.update();
-  }
-  motionButton.addEventListener('click',()=>{paused=!paused;updateMotion();});
-  reducedMotion.addEventListener('change',event=>{paused=event.matches;updateMotion();});
-  updateMotion();
+  $$('[data-filter]').forEach(button => button.addEventListener('click', () => setFilter(button.dataset.filter)));
 
-  function createAutoSlides(){
-    const bench=$('.workbench');
-    const workflow=$('.workflow');
-    let panelTimer=0,workflowTimer=0,inView=false,workflowInView=false,hovered=false;
-    const order=['business','operations','digital'];
-    const eligible=()=>{
-      const state=paused?'paused':reducedMotion.matches?'reduced-motion':document.hidden?'hidden':!inView?'offscreen':hovered||bench.contains(document.activeElement)?'interacting':'running';
-      bench.dataset.slides=state;
-      return state==='running';
-    };
-    function schedulePanel(){
-      if(!eligible())return;
-      panelTimer=setTimeout(()=>{if(!eligible())return;setFocus(order[(order.indexOf(focus)+1)%order.length],{automatic:true});schedulePanel();},5000);
+  const snippets = {
+    profile: {
+      filename: 'gopal.profile.ts', language: 'TypeScript', caption: 'The person behind the work',
+      code: 'const gopal = {\n  name: "Gopal Gurjar",\n  role: "Marketing Executive",\n  base: "Bengaluru, India",\n  languages: ["Hindi", "English"],\n  digital: ["Web Development", "Coding"],\n  operations: ["SAP", "Tally", "Supply Chain"],\n  mindset: "Practical. Curious. Connected."\n};'
+    },
+    operations: {
+      filename: 'erp_logistics.log', language: 'Work context', caption: 'Areas of work · No live business data',
+      code: '# A connected operations checklist\nSAP         / portal management\nACCOUNTS    / Tally & purchase review\nDOCUMENTS   / Bills of Entry\nTAXATION    / checking the details\nINVENTORY   / keeping track\nDISPATCH    / clear coordination\nCUSTOMERS   / the next conversation\n# People, process and follow-through.'
+    },
+    automation: {
+      filename: 'automate.ps1', language: 'PowerShell', caption: 'Illustrative read-only diagnostic snippet',
+      code: '# Start with the basics. Inspect first.\n$network = Get-NetIPConfiguration\n$dns = Resolve-DnsName "example.com"\n$connection = Test-Connection "example.com" -Count 2\n\n# Review the result before the next step.\n$network | Format-List\n$dns | Select-Object Name, IPAddress\n$connection | Format-Table'
     }
-    function scheduleWorkflow(){
-      if(!eligible()||!workflowInView)return;
-      workflowTimer=setTimeout(()=>{if(!eligible()||!workflowInView)return;const next=(stage+1)%3;if(next===0)workflowFocus=order[(order.indexOf(workflowFocus)+1)%order.length];showStage(next);scheduleWorkflow();},5000);
-    }
-    function restart(){clearTimeout(panelTimer);clearTimeout(workflowTimer);panelTimer=0;workflowTimer=0;schedulePanel();scheduleWorkflow();}
-    function restartWorkflow(){clearTimeout(workflowTimer);workflowTimer=0;scheduleWorkflow();}
-    bench.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse'){hovered=true;restart();}});
-    bench.addEventListener('pointerleave',event=>{if(event.pointerType==='mouse'){hovered=false;restart();}});
-    bench.addEventListener('focusin',restart);
-    bench.addEventListener('focusout',()=>setTimeout(restart,0));
-    document.addEventListener('visibilitychange',restart);
-    new IntersectionObserver(entries=>{inView=entries[0].isIntersecting&&entries[0].intersectionRatio>=.2;restart();},{threshold:[0,.2]}).observe(bench);
-    new IntersectionObserver(entries=>{workflowInView=entries[0].isIntersecting&&entries[0].intersectionRatio>=.2;restartWorkflow();},{threshold:[0,.2]}).observe(workflow);
-    return{sync:restart,restart,restartWorkflow};
-  }
-  autoSlides=createAutoSlides();
+  };
+  const inspector = $('.inspector');
+  const inspectorTabs = $$('[data-inspect]');
+  const inspectorOrder = ['profile', 'operations', 'automation'];
+  let inspectorTimer = 0;
+  let inspectorVisible = false;
+  let inspectorHovered = false;
+  let inspectorPaused = false;
 
-  function createScrollJourney(){
-    const hero=$('.hero'),rail=$('.journey-rail'),career=$('.career-list');
-    const links=$$('.journey-rail a');
-    const chapters=links.map(link=>$(link.hash));
-    const careerEntries=$$('.career-entry');
-    const clamp=value=>Math.max(0,Math.min(1,value));
-    function update(){
-      const viewport=innerHeight,anchor=viewport*.36;
-      let current=0;
-      chapters.forEach((chapter,index)=>{if(chapter.getBoundingClientRect().top<=anchor)current=index;});
-      const chapter=chapters[current].getBoundingClientRect();
-      const next=chapters[current+1]?.getBoundingClientRect();
-      const distance=next?next.top-chapter.top:chapter.height;
-      const fraction=clamp((anchor-chapter.top)/Math.max(1,distance));
-      rail.style.setProperty('--journey-progress',String(clamp((current+fraction)/(chapters.length-1))));
-      links.forEach((link,index)=>{link.classList.toggle('is-past',index<current);if(index===current)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');});
-      const heroRect=hero.getBoundingClientRect();
-      const motion=!paused&&!reducedMotion.matches;
-      hero.style.setProperty('--hero-parallax',`${motion?Math.min(140,Math.max(0,-heroRect.top)*.18):0}px`);
-      hero.style.setProperty('--particle-parallax',`${motion?Math.min(40,Math.max(0,-heroRect.top)*.06):0}px`);
-      const careerRect=career.getBoundingClientRect();
-      career.style.setProperty('--career-progress',String(clamp((viewport*.7-careerRect.top)/careerRect.height)));
-      careerEntries.forEach(entry=>entry.classList.toggle('timeline-passed',entry.getBoundingClientRect().top<viewport*.7));
-    }
-    addEventListener('resize',()=>{if(!scrollPending){scrollPending=true;requestAnimationFrame(updateProgress);}},{passive:true});
-    const observer=new ResizeObserver(()=>{if(!scrollPending){scrollPending=true;requestAnimationFrame(updateProgress);}});
-    observer.observe(document.body);
-    update();
-    return{update};
-  }
-  scrollJourney=createScrollJourney();
-
-  // Real content counts animate once, without introducing achievement claims.
-  $$('[data-count]').forEach(counter=>{
-    const target=Number(counter.dataset.count);
-    let frame=0,started=false;
-    function start(){
-      if(started)return;started=true;
-      if(paused||reducedMotion.matches){counter.textContent=String(target);return;}
-      const began=performance.now();
-      function tick(now){
-        if(paused||reducedMotion.matches){counter.textContent=String(target);return;}
-        const progress=Math.min(1,(now-began)/700);
-        counter.textContent=String(Math.round(target*(1-Math.pow(1-progress,3))));
-        if(progress<1)frame=requestAnimationFrame(tick);
-      }
-      counter.textContent='0';frame=requestAnimationFrame(tick);
-    }
-    if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>{if(entries[0].isIntersecting){start();observer.disconnect();}},{threshold:1});observer.observe(counter);}else start();
-  });
-  $$('.portrait-frame').forEach(frame=>{
-    const image=frame.querySelector('img');
-    const ready=()=>{frame.classList.add('image-ready');frame.setAttribute('aria-busy','false');};
-    if(image.complete)ready();else{frame.setAttribute('aria-busy','true');image.addEventListener('load',ready,{once:true});image.addEventListener('error',ready,{once:true});}
-  });
-
-  // Pointer polish stays local to the element and leaves normal touch scrolling intact.
-  const finePointer=matchMedia('(hover: hover) and (pointer: fine)');
-  $$('.workbench,.contact-method,.about-portrait,.career-entry,.project-card').forEach(element=>{
-    let frame=0,lastEvent;
-    element.addEventListener('pointermove',event=>{
-      if(!finePointer.matches||paused||event.pointerType!=='mouse')return;
-      lastEvent=event;if(frame)return;
-      frame=requestAnimationFrame(()=>{
-        frame=0;const rect=element.getBoundingClientRect(),x=lastEvent.clientX-rect.left,y=lastEvent.clientY-rect.top;
-        element.style.setProperty('--pointer-x',x+'px');element.style.setProperty('--pointer-y',y+'px');
-        element.style.setProperty('--tilt-x',((.5-y/rect.height)*5).toFixed(2)+'deg');element.style.setProperty('--tilt-y',((x/rect.width-.5)*6).toFixed(2)+'deg');
-        element.classList.add('pointer-active');
+  function highlightCode(code) {
+    const lines = document.createElement('ol');
+    lines.className = 'code-lines';
+    code.split('\n').forEach(line => {
+      const li = document.createElement('li');
+      const content = document.createElement('span');
+      const tokens = line.split(/("[^"]*"|'[^']*'|#[^\n]*|\bconst\b|\$[a-zA-Z]+|\b[a-zA-Z_]+(?=:))/g);
+      tokens.forEach(part => {
+        if (!part) return;
+        let category = '';
+        if (/^["']/.test(part)) category = 'string';
+        else if (/^#/.test(part)) category = 'comment';
+        else if (part === 'const') category = 'keyword';
+        else if (/^\$/.test(part) || /^\w+$/.test(part)) category = 'property';
+        if (category) {
+          const token = document.createElement('span');
+          token.className = 'token-' + category;
+          token.textContent = part;
+          content.append(token);
+        } else content.append(document.createTextNode(part));
       });
-    },{passive:true});
-    element.addEventListener('pointerleave',()=>{cancelAnimationFrame(frame);frame=0;element.classList.remove('pointer-active');element.style.setProperty('--tilt-x','0deg');element.style.setProperty('--tilt-y','0deg');});
+      if (!line) content.append(document.createTextNode(' '));
+      li.append(content);
+      lines.append(li);
+    });
+    $('#inspector-code').replaceChildren(lines);
+  }
+
+  function scheduleInspector() {
+    clearTimeout(inspectorTimer);
+    inspector.classList.remove('auto-running');
+    if (!canMove() || inspectorPaused || !inspectorVisible || inspectorHovered || document.hidden || inspector.contains(document.activeElement)) return;
+    void inspector.offsetWidth;
+    inspector.classList.add('auto-running');
+    inspectorTimer = setTimeout(() => {
+      setInspector(inspectorOrder[(inspectorOrder.indexOf(state.inspector) + 1) % inspectorOrder.length]);
+    }, 5000);
+  }
+  function setInspector(value) {
+    if (!Object.hasOwn(snippets, value)) return;
+    state.inspector = value;
+    inspectorTabs.forEach(tab => {
+      const active = tab.dataset.inspect === value;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+    const item = snippets[value];
+    $('#inspector-panel').setAttribute('aria-labelledby', 'inspect-' + value);
+    $('#inspector-filename').textContent = item.filename;
+    $('#inspector-language').textContent = item.language;
+    $('#inspector-caption').textContent = item.caption;
+    highlightCode(item.code);
+    if (canMove()) $('#inspector-code').animate([{ opacity: .25, translate: '0 4px' }, { opacity: 1, translate: '0 0' }], { duration: 250, easing: 'ease-out' });
+    scheduleInspector();
+  }
+  function keyboardTabs(tabs, keyName, apply) {
+    tabs.forEach((tab, index) => tab.addEventListener('keydown', event => {
+      let next = index;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % tabs.length;
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index + tabs.length - 1) % tabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      apply(tabs[next].dataset[keyName]);
+      tabs[next].focus();
+    }));
+  }
+  inspectorTabs.forEach(tab => tab.addEventListener('click', () => setInspector(tab.dataset.inspect)));
+  keyboardTabs(inspectorTabs, 'inspect', setInspector);
+  inspector.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') { inspectorHovered = true; scheduleInspector(); } });
+  inspector.addEventListener('pointerleave', event => { if (event.pointerType === 'mouse') { inspectorHovered = false; scheduleInspector(); } });
+  inspector.addEventListener('focusin', scheduleInspector);
+  inspector.addEventListener('focusout', () => setTimeout(scheduleInspector, 0));
+  $('.sequence-toggle').addEventListener('click', () => {
+    inspectorPaused = !inspectorPaused;
+    updateSequenceControl();
+    scheduleInspector();
   });
-  $$('.career-entry').forEach(entry=>entry.addEventListener('toggle',()=>{
-    if(entry.open&&!paused&&!reducedMotion.matches)entry.querySelector('.career-body').animate([{opacity:0,transform:'translateY(-5px)'},{opacity:1,transform:'none'}],{duration:240,easing:'ease-out'});
+  function updateSequenceControl() {
+    const paused = inspectorPaused || !canMove();
+    const button = $('.sequence-toggle');
+    button.disabled = !canMove();
+    button.setAttribute('aria-pressed', String(paused));
+    button.setAttribute('aria-label', paused ? 'Play inspector sequence' : 'Pause inspector sequence');
+    $('use', button).setAttribute('href', './icons-v2.svg#' + (paused ? 'play' : 'pause'));
+  }
+  $('.copy-code').addEventListener('click', () => copy(snippets[state.inspector].code, 'Snippet copied'));
+
+  function preview(value) {
+    $$('[data-preview]').forEach(tab => {
+      const active = tab.dataset.preview === value;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      $('#preview-panel-' + tab.dataset.preview).hidden = !active;
+    });
+    if (canMove()) $('#preview-panel-' + value).animate([{ opacity: .2 }, { opacity: 1 }], { duration: 240 });
+  }
+  $$('[data-preview]').forEach(tab => tab.addEventListener('click', () => preview(tab.dataset.preview)));
+  keyboardTabs($$('[data-preview]'), 'preview', preview);
+
+  const tracks = {
+    hiring: { subject: 'Professional opportunity', text: 'Hi Gopal, I’d like to discuss a full-time role or professional opportunity in marketing, accounts or operations.' },
+    web: { subject: 'Web development project', text: 'Hi Gopal, I’d like to discuss a web development project for my business or personal brand.' },
+    campaign: { subject: 'Meta campaign and digital support', text: 'Hi Gopal, I’d like to discuss Meta campaign support and digital communication workflows.' }
+  };
+  const draft = () => {
+    let text = tracks[state.track].text;
+    if (state.track === 'web') text = 'Hi Gopal, I’d like to discuss ' + ({ business: 'a business website', landing: 'a landing page', portfolio: 'a personal portfolio website' }[state.webKind]) + '.';
+    if (state.track === 'campaign') text = 'Hi Gopal, I’d like to discuss Meta campaign and digital support focused on ' + ({ enquiries: 'customer enquiries', presence: 'brand presence', workflow: 'communication workflows' }[state.campaignGoal]) + '.';
+    return text + (state.note.trim() ? '\n\n' + state.note.trim() : '\n\nLet’s connect about the details.');
+  };
+  ['inline', 'dialog'].forEach(prefix => {
+    const content = $('#composer-template').content.cloneNode(true);
+    const field = $('[data-note]', content);
+    field.id = prefix + '-note';
+    $('[data-note-label]', content).setAttribute('for', field.id);
+    const feedback = document.createElement('span');
+    feedback.className = 'sr-only';
+    feedback.dataset.feedback = '';
+    feedback.setAttribute('role', 'status');
+    $('.composer-form', content).append(feedback);
+    $('#' + prefix + '-composer').append(content);
+  });
+
+  function renderComposer() {
+    $$('[data-feedback]').forEach(item => { item.textContent = ''; });
+    $$('[data-track]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.track === state.track)));
+    $$('[data-note]').forEach(field => {
+      if (field.value !== state.note) field.value = state.note;
+    });
+    $$('.character-count').forEach(counter => { counter.textContent = state.note.length + ' / 700'; });
+    $$('[data-draft]').forEach(element => { element.textContent = draft(); });
+    $$('[data-composer-step="choose"]').forEach(element => element.classList.add('active'));
+    $$('[data-composer-step="describe"]').forEach(element => element.classList.toggle('active', Boolean(state.note.trim())));
+    $$('[data-composer-step="connect"]').forEach(element => element.classList.remove('active'));
+  }
+  $$('[data-track]').forEach(button => button.addEventListener('click', () => {
+    state.track = button.dataset.track;
+    renderComposer();
   }));
+  $$('[data-note]').forEach(field => field.addEventListener('input', () => {
+    state.note = field.value.slice(0, 700);
+    renderComposer();
+  }));
+  $$('.composer-form').forEach(form => form.addEventListener('submit', event => event.preventDefault()));
+  $$('[data-channel]').forEach(link => link.addEventListener('click', () => {
+    const details = contact();
+    if (link.dataset.channel === 'whatsapp') link.href = 'https://wa.me/' + details.phone + '?text=' + encodeURIComponent(draft());
+    else link.href = 'mailto:' + details.email + '?subject=' + encodeURIComponent(tracks[state.track].subject) + '&body=' + encodeURIComponent(draft());
+    $$('[data-composer-step="connect"]').forEach(element => element.classList.add('active'));
+  }));
+  $$('.copy-message').forEach(button => button.addEventListener('click', () => copy(draft(), 'Your message is copied')));
+  $$('[data-copy-contact]').forEach(button => button.addEventListener('click', () => {
+    const details = contact();
+    const email = button.dataset.copyContact === 'email';
+    copy(email ? details.email : '+' + details.phone, email ? 'Email address copied' : 'WhatsApp number copied');
+  }));
+
+  function openDialog(element) {
+    $$('dialog[open]').forEach(dialog => dialog.close());
+    closeMenu();
+    element.showModal();
+    root.classList.add('modal-open');
+    scheduleInspector();
+    syncCanvas();
+  }
+  function openInquiry(track) {
+    if (Object.hasOwn(tracks, track)) state.track = track;
+    renderComposer();
+    openDialog($('#inquiry-dialog'));
+  }
+  $$('[data-inquiry]').forEach(button => button.addEventListener('click', () => openInquiry(button.dataset.inquiry)));
+  $$('[data-close]').forEach(button => button.addEventListener('click', () => $('#' + button.dataset.close).close()));
+  $$('dialog').forEach(dialog => {
+    dialog.addEventListener('close', () => {
+      if (!$('dialog[open]')) root.classList.remove('modal-open');
+      scheduleInspector();
+      syncCanvas();
+    });
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    });
+  });
+
+  const commandDialog = $('#command-dialog');
+  const commandSearch = $('#command-search');
+  let currentCommands = [];
+  let commandIndex = 0;
+  function navigate(id) {
+    const section = document.getElementById(id);
+    if (!section) return;
+    location.hash = id;
+    const heading = $('h2', section);
+    if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+  }
+  const commands = [
+    { id: 'expertise', group: 'Explore', name: 'Explore expertise', keywords: 'skills capabilities', glyph: 'layers', action: () => navigate('expertise') },
+    { id: 'projects', group: 'Explore', name: 'Projects & capabilities', keywords: 'work website build', glyph: 'code-xml', action: () => navigate('projects') },
+    { id: 'experience', group: 'Explore', name: 'Chemical industry experience', keywords: 'career jobs bhansali accounts', glyph: 'briefcase-business', action: () => navigate('experience') },
+    { id: 'about', group: 'Explore', name: 'About Gopal', keywords: 'person location languages rajasthan bengaluru', glyph: 'map-pin', action: () => navigate('about') },
+    { id: 'contact', group: 'Explore', name: 'Contact & enquiry builder', keywords: 'email whatsapp connect', glyph: 'mail', action: () => navigate('contact') },
+    { id: 'hiring', group: 'Start a conversation', name: 'Discuss a role or hiring enquiry', keywords: 'jobs full time accounts marketing', glyph: 'briefcase-business', action: () => openInquiry('hiring') },
+    { id: 'web', group: 'Start a conversation', name: 'Scope a web development project', keywords: 'freelance website coding development', glyph: 'code-xml', action: () => openInquiry('web') },
+    { id: 'campaign', group: 'Start a conversation', name: 'Discuss Meta campaign support', keywords: 'ads digital marketing', glyph: 'megaphone', action: () => openInquiry('campaign') },
+    { id: 'filter-digital', group: 'Quick actions', name: 'Filter digital & coding capabilities', keywords: 'skills html css javascript powershell', glyph: 'terminal', action: () => { setFilter('digital'); navigate('expertise'); } },
+    { id: 'filter-operations', group: 'Quick actions', name: 'Filter accounts & operations', keywords: 'sap tally purchase dispatch supply chain', glyph: 'boxes', action: () => { setFilter('operations'); navigate('expertise'); } },
+    { id: 'filter-marketing', group: 'Quick actions', name: 'Filter marketing & sales', keywords: 'customers meta b2b', glyph: 'megaphone', action: () => { setFilter('marketing'); navigate('expertise'); } },
+    { id: 'copy-email', group: 'Quick actions', name: 'Copy email address', keywords: 'contact email', glyph: 'copy', action: () => copy(contact().email, 'Email address copied') },
+    { id: 'copy-phone', group: 'Quick actions', name: 'Copy WhatsApp number', keywords: 'phone mobile contact', glyph: 'copy', action: () => copy('+' + contact().phone, 'WhatsApp number copied') },
+    { id: 'theme', group: 'Quick actions', name: 'Switch light / dark theme', keywords: 'appearance display mode', glyph: 'sun', action: () => theme(state.theme === 'light' ? 'dark' : 'light') },
+    { id: 'motion', group: 'Quick actions', name: 'Pause / resume ambient motion', keywords: 'animation reduce movement', glyph: 'pause', action: () => { state.motion = !state.motion; motionChanged(); } },
+    { id: 'github', group: 'Public profiles', name: 'Open GitHub profile', keywords: 'code source repository', glyph: 'code-xml', hint: 'Opens a new tab', action: () => window.open('https://github.com/rjgopalgurjar', '_blank', 'noopener,noreferrer') },
+    { id: 'linkedin', group: 'Public profiles', name: 'Connect on LinkedIn', keywords: 'professional profile', glyph: 'briefcase-business', hint: 'Opens a new tab', action: () => window.open('https://www.linkedin.com/in/rjgopalgurjar/', '_blank', 'noopener,noreferrer') }
+  ];
+  function selectCommand(index) {
+    commandIndex = Math.max(0, Math.min(index, currentCommands.length - 1));
+    $$('.command-option').forEach((button, position) => button.setAttribute('aria-selected', String(position === commandIndex)));
+    if (currentCommands[commandIndex]) {
+      const id = 'command-' + currentCommands[commandIndex].id;
+      commandSearch.setAttribute('aria-activedescendant', id);
+      const option = document.getElementById(id);
+      const results = $('#command-results');
+      const top = option.getBoundingClientRect().top - results.getBoundingClientRect().top + results.scrollTop;
+      if (top < results.scrollTop) results.scrollTop = top;
+      else if (top + option.offsetHeight > results.scrollTop + results.clientHeight) results.scrollTop = top + option.offsetHeight - results.clientHeight;
+    } else commandSearch.removeAttribute('aria-activedescendant');
+  }
+  function runCommand(command) {
+    commandDialog.close();
+    command.action();
+  }
+  function renderCommands() {
+    const terms = commandSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    currentCommands = commands.filter(command => terms.every(term => (command.name + ' ' + command.keywords).toLowerCase().includes(term)));
+    const results = $('#command-results');
+    results.replaceChildren();
+    let group = '';
+    currentCommands.forEach((command, index) => {
+      if (command.group !== group) {
+        group = command.group;
+        const label = document.createElement('div');
+        label.className = 'command-group';
+        label.setAttribute('role', 'presentation');
+        label.textContent = group;
+        results.append(label);
+      }
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'command-option';
+      button.id = 'command-' + command.id;
+      button.tabIndex = -1;
+      button.setAttribute('role', 'option');
+      button.append(icon(command.glyph), document.createTextNode(command.name));
+      if (command.hint) {
+        const hint = document.createElement('small');
+        hint.textContent = command.hint;
+        button.append(hint);
+      }
+      button.addEventListener('pointermove', () => selectCommand(index));
+      button.addEventListener('click', () => runCommand(command));
+      results.append(button);
+    });
+    if (!currentCommands.length) {
+      const empty = document.createElement('p');
+      empty.className = 'command-empty';
+      empty.textContent = 'No matching commands. Try “web”, “skills” or “contact”.';
+      results.append(empty);
+    }
+    selectCommand(0);
+  }
+  function openCommands() {
+    commandSearch.value = '';
+    openDialog(commandDialog);
+    renderCommands();
+    commandSearch.focus();
+  }
+  $('.command-trigger').addEventListener('click', openCommands);
+  $$('[data-open-commands]').forEach(button => button.addEventListener('click', openCommands));
+  commandSearch.addEventListener('input', renderCommands);
+  commandSearch.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      if (currentCommands.length) selectCommand((commandIndex + step + currentCommands.length) % currentCommands.length);
+    } else if (event.key === 'Enter' && currentCommands[commandIndex]) {
+      event.preventDefault();
+      runCommand(currentCommands[commandIndex]);
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      if (commandDialog.open) commandDialog.close(); else openCommands();
+    } else if (event.key === 'Escape' && !menu.hidden) { closeMenu(); menuButton.focus(); }
+  });
+
+  let scrollContext = null;
+  function scrollAnimations() {
+    if (scrollContext) { scrollContext.revert(); scrollContext = null; }
+    if (!window.gsap || !window.ScrollTrigger || !canMove()) {
+      $$('.reveal').forEach(element => { element.style.opacity = '1'; element.style.setProperty('--reveal-y', '0px'); element.style.setProperty('--reveal-x', '0px'); element.style.setProperty('--reveal-scale', '1'); });
+      $('.timeline-track>span').style.transform = 'scaleY(1)';
+      return;
+    }
+    gsap.registerPlugin(ScrollTrigger);
+    scrollContext = gsap.context(() => {
+      $$('.reveal').forEach((element, index) => {
+        if (element.hidden || element.getBoundingClientRect().bottom < 0) return;
+        gsap.fromTo(element, { opacity: 0, '--reveal-y': '32px', '--reveal-x': (index % 2 ? 14 : -14) + 'px', '--reveal-scale': '.985' }, {
+          opacity: 1, '--reveal-y': '0px', '--reveal-x': '0px', '--reveal-scale': '1', duration: .8, ease: 'power2.out',
+          scrollTrigger: { trigger: element, start: 'top 94%', once: true }
+        });
+      });
+      gsap.fromTo('.timeline-track>span', { scaleY: 0 }, { scaleY: 1, ease: 'none', scrollTrigger: { trigger: '.career-timeline', start: 'top 70%', end: 'bottom 65%', scrub: .6 } });
+      gsap.to('.mesh-blue', { y: 130, x: -40, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1 } });
+      gsap.to('.mesh-amber', { y: -100, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1 } });
+    });
+  }
+  $$('.career-entry').forEach(entry => entry.addEventListener('toggle', () => {
+    refreshScroll();
+    if (entry.open && canMove()) $('.career-body', entry).animate([{ opacity: .15, translate: '0 -5px' }, { opacity: 1, translate: '0 0' }], { duration: 280, easing: 'ease-out' });
+  }));
+
+  let scrollFrame = 0;
+  let lastScroll = scrollY;
+  let scrollVelocity = 0;
+  let activeSection = null;
+  function updateScroll() {
+    scrollFrame = 0;
+    const height = root.scrollHeight - innerHeight;
+    $('.reading-progress').style.transform = 'scaleX(' + (height > 0 ? Math.min(1, scrollY / height) : 0) + ')';
+    const journeyFill = $('.journey-line>span');
+    if (journeyFill) journeyFill.style.transform = 'scaleY(' + (height > 0 ? Math.min(1, scrollY / height) : 0) + ')';
+    let next = '';
+    $$('main>section[id]').forEach(section => { if (section.getBoundingClientRect().top < Math.max(170, innerHeight * .3)) next = section.id; });
+    if (next !== activeSection) {
+      activeSection = next;
+      $$('.desktop-nav a').forEach(link => {
+        const active = link.hash === '#' + next;
+        link.classList.toggle('active', active);
+        if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+      });
+      $$('.journey-rail a').forEach(link => {
+        const active = link.hash === '#' + (next || 'main');
+        link.classList.toggle('active', active);
+        if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+      });
+    }
+    scrollVelocity = Math.min(30, Math.abs(scrollY - lastScroll));
+    lastScroll = scrollY;
+  }
+  addEventListener('scroll', () => { if (!scrollFrame) scrollFrame = requestAnimationFrame(updateScroll); }, { passive: true });
+  addEventListener('resize', updateScroll, { passive: true });
+  if ('ResizeObserver' in window) new ResizeObserver(updateScroll).observe(document.body);
+
+  $$('.reactive-card').forEach(card => {
+    let frame = 0;
+    let coordinates;
+    card.addEventListener('pointermove', event => {
+      if (!canMove() || !finePointer.matches || event.pointerType !== 'mouse') return;
+      coordinates = { x: event.clientX, y: event.clientY };
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const rect = card.getBoundingClientRect();
+        const x = (coordinates.x - rect.left) / rect.width;
+        const y = (coordinates.y - rect.top) / rect.height;
+        card.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+        card.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+        if (card.hasAttribute('data-tilt')) {
+          card.style.setProperty('--rx', ((.5 - y) * 6).toFixed(2) + 'deg');
+          card.style.setProperty('--ry', ((x - .5) * 6).toFixed(2) + 'deg');
+        }
+      });
+    }, { passive: true });
+    card.addEventListener('pointerleave', () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      card.style.setProperty('--rx', '0deg');
+      card.style.setProperty('--ry', '0deg');
+    });
+  });
+  $$('.magnetic').forEach(button => {
+    button.addEventListener('pointermove', event => {
+      if (!canMove() || !finePointer.matches || event.pointerType !== 'mouse') return;
+      const rect = button.getBoundingClientRect();
+      button.style.setProperty('--button-x', ((event.clientX - rect.left - rect.width / 2) * .035).toFixed(1) + 'px');
+      button.style.setProperty('--button-y', ((event.clientY - rect.top - rect.height / 2) * .05).toFixed(1) + 'px');
+    }, { passive: true });
+    button.addEventListener('pointerleave', () => { button.style.setProperty('--button-x', '0px'); button.style.setProperty('--button-y', '0px'); });
+  });
+
+  const canvas = $('#coordinate-field');
+  const context = canvas.getContext('2d');
+  const hero = $('.hero');
+  let canvasWidth = 0, canvasHeight = 0, canvasFrame = 0, lastCanvasFrame = 0, heroVisible = true;
+  const pointer = { x: 0, y: 0, active: false };
+  let nodes = [];
+  let ripples = [];
+  function sizeCanvas() {
+    const rect = hero.getBoundingClientRect();
+    canvasWidth = rect.width;
+    canvasHeight = rect.height;
+    const ratio = Math.min(devicePixelRatio || 1, 1.5);
+    canvas.width = Math.round(canvasWidth * ratio);
+    canvas.height = Math.round(canvasHeight * ratio);
+    if (context) context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const count = canvasWidth < 768 ? 19 : 38;
+    nodes = Array.from({ length: count }, (_, index) => ({ x: ((index * .61803398875) % 1) * canvasWidth, y: ((index * .41421356237 + .12) % 1) * canvasHeight, phase: index * 1.7 }));
+    drawCanvas(0);
+    syncCanvas();
+  }
+  function drawCanvas(time) {
+    if (!context || !canvasWidth || !canvasHeight) return;
+    context.clearRect(0, 0, canvasWidth, canvasHeight);
+    const dark = state.theme === 'dark';
+    const rgb = dark ? '112,184,255' : '61,122,186';
+    context.fillStyle = 'rgba(' + rgb + ',' + (dark ? '.15' : '.18') + ')';
+    for (let x = 24; x < canvasWidth; x += 44) {
+      for (let y = 30; y < canvasHeight; y += 44) {
+        context.beginPath(); context.arc(x, y, .65, 0, Math.PI * 2); context.fill();
+      }
+    }
+    const animated = canMove();
+    const positions = nodes.map(node => {
+      let x = node.x + (animated ? Math.sin(time * .00015 + node.phase) * 14 : 0);
+      let y = node.y + (animated ? Math.cos(time * .00012 + node.phase) * 11 + scrollVelocity * .1 : 0);
+      const dx = x - pointer.x, dy = y - pointer.y, distance = Math.hypot(dx, dy);
+      if (pointer.active && animated && distance < 140 && distance > 0) {
+        const force = (140 - distance) / 140;
+        x += dx / distance * force * 17; y += dy / distance * force * 17;
+      }
+      return { x, y };
+    });
+    positions.forEach((node, index) => {
+      const fade = node.x < canvasWidth * .5 ? .35 : 1;
+      for (let other = index + 1; other < positions.length; other++) {
+        const next = positions[other];
+        const distance = Math.hypot(node.x - next.x, node.y - next.y);
+        if (distance > 190) continue;
+        context.strokeStyle = 'rgba(' + rgb + ',' + ((1 - distance / 190) * .19 * fade).toFixed(3) + ')';
+        context.lineWidth = .65; context.beginPath(); context.moveTo(node.x, node.y); context.lineTo(next.x, next.y); context.stroke();
+      }
+      context.fillStyle = 'rgba(' + rgb + ',' + (.32 * fade).toFixed(2) + ')';
+      context.beginPath(); context.arc(node.x, node.y, index % 4 === 0 ? 2.5 : 1.5, 0, Math.PI * 2); context.fill();
+    });
+    if (animated) {
+      ripples = ripples.filter(ripple => time - ripple.time < 900);
+      ripples.forEach(ripple => {
+        const progress = (time - ripple.time) / 900;
+        context.strokeStyle = 'rgba(' + rgb + ',' + ((1 - progress) * .16).toFixed(3) + ')';
+        context.beginPath(); context.arc(ripple.x, ripple.y, 10 + progress * 100, 0, Math.PI * 2); context.stroke();
+      });
+    }
+    scrollVelocity *= .92;
+  }
+  function canvasLoop(time) {
+    canvasFrame = 0;
+    if (!canMove() || document.hidden || !heroVisible || $('dialog[open]')) return;
+    if (time - lastCanvasFrame > 32) { lastCanvasFrame = time; drawCanvas(time); }
+    canvasFrame = requestAnimationFrame(canvasLoop);
+  }
+  function syncCanvas() {
+    cancelAnimationFrame(canvasFrame); canvasFrame = 0;
+    if (canMove() && !document.hidden && heroVisible && !$('dialog[open]')) canvasFrame = requestAnimationFrame(canvasLoop);
+    else drawCanvas(0);
+  }
+  hero.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'mouse') return;
+    const rect = hero.getBoundingClientRect();
+    pointer.x = event.clientX - rect.left; pointer.y = event.clientY - rect.top; pointer.active = true;
+  }, { passive: true });
+  hero.addEventListener('pointerleave', () => { pointer.active = false; });
+  hero.addEventListener('pointerdown', event => {
+    if (!canMove() || event.pointerType !== 'mouse' || event.target.closest('button,a')) return;
+    const rect = hero.getBoundingClientRect();
+    ripples.push({ x: event.clientX - rect.left, y: event.clientY - rect.top, time: performance.now() });
+    if (ripples.length > 3) ripples.shift();
+  }, { passive: true });
+  if ('ResizeObserver' in window) new ResizeObserver(sizeCanvas).observe(hero);
+  else addEventListener('resize', sizeCanvas);
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(entries => { heroVisible = entries[0].isIntersecting; syncCanvas(); }, { threshold: 0 }).observe(hero);
+    new IntersectionObserver(entries => {
+      inspectorVisible = entries[0].isIntersecting && entries[0].intersectionRatio >= .25;
+      scheduleInspector();
+    }, { threshold: [0, .25] }).observe(inspector);
+    const visibleContact = new Map();
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => visibleContact.set(entry.target, entry.isIntersecting));
+      root.classList.toggle('contact-visible', Array.from(visibleContact.values()).some(Boolean));
+    });
+    observer.observe($('#contact')); observer.observe($('.site-footer'));
+  } else inspectorVisible = true;
+
+  function motionChanged() {
+    root.classList.toggle('motion-off', !canMove());
+    const button = $('.motion-toggle');
+    button.setAttribute('aria-pressed', String(!canMove()));
+    button.textContent = reduced.matches ? 'Device reduced motion enabled' : (state.motion ? 'Pause ambient motion' : 'Resume ambient motion');
+    button.disabled = reduced.matches;
+    updateSequenceControl();
+    if (!canMove()) $$('.reactive-card').forEach(card => { card.style.setProperty('--rx', '0deg'); card.style.setProperty('--ry', '0deg'); });
+    scrollAnimations(); scheduleInspector(); syncCanvas();
+    document.dispatchEvent(new CustomEvent('gopal:motion', { detail: { enabled: canMove() } }));
+  }
+  $('.motion-toggle').addEventListener('click', () => { state.motion = !state.motion; motionChanged(); });
+  reduced.addEventListener('change', event => { state.motion = !event.matches; motionChanged(); });
+  document.addEventListener('visibilitychange', () => { scheduleInspector(); syncCanvas(); });
+  const digitalDemos = {
+    web: { code: '<experience\n  responsive="by design"\n  focus="people first"\n/>', caption: 'Responsive interfaces shaped around the people using them.' },
+    diagnostics: { code: 'inspect the issue\n  > check the basics\n  > understand the result\n  > choose the next step', caption: 'Practical troubleshooting with CMD, PowerShell and a methodical approach.' },
+    workflow: { code: 'a clear requirement\n  + a useful message\n  + the right next step\n  = a connected workflow', caption: 'Email workflows that keep communication and follow-through connected.' }
+  };
+  $$('[data-digital-demo]').forEach(button => button.addEventListener('click', () => {
+    const item = digitalDemos[button.dataset.digitalDemo];
+    $$('[data-digital-demo]').forEach(control => control.setAttribute('aria-pressed', String(control === button)));
+    const code = document.createElement('code');
+    code.textContent = item.code;
+    $('#digital-demo').replaceChildren(code);
+    $('#digital-demo-caption').textContent = item.caption;
+    if (canMove()) $('#digital-demo').animate([{ opacity: .35, translate: '0 5px' }, { opacity: 1, translate: '0 0' }], { duration: 260 });
+    refreshScroll();
+  }));
+  const operationDetails = {
+    purchase: 'Reviewing import and domestic purchases with attention to the details.',
+    documents: 'Checking import and customs documents, including Bills of Entry and taxation details.',
+    dispatch: 'Connecting inventory, SAP portal work and dispatch coordination in everyday operations.'
+  };
+  $$('[data-ops-stage]').forEach(button => button.addEventListener('click', () => {
+    $$('[data-ops-stage]').forEach(control => control.setAttribute('aria-pressed', String(control === button)));
+    $('#ops-stage-detail').textContent = operationDetails[button.dataset.opsStage];
+    if (canMove()) $('#ops-stage-detail').animate([{ opacity: .2 }, { opacity: 1 }], { duration: 260 });
+  }));
+  const workMap = $('.connection-map');
+  const workSteps = ['understand', 'coordinate', 'follow'];
+  const workDescriptions = {
+    understand: 'Start with the customer’s requirements and keep the conversation clear.',
+    coordinate: 'Connect people, information and everyday commercial operations around the requirement.',
+    follow: 'Keep the next step visible through communication, email workflows and practical follow-through.'
+  };
+  let workStep = 'understand', workTimer = 0, workVisible = false, workHovered = false;
+  function scheduleWork() {
+    clearTimeout(workTimer);
+    if (!canMove() || !workVisible || workHovered || workMap.contains(document.activeElement) || document.hidden) return;
+    workTimer = setTimeout(() => changeWork(workSteps[(workSteps.indexOf(workStep) + 1) % workSteps.length]), 5000);
+  }
+  function changeWork(value) {
+    workStep = value;
+    $$('[data-work-step]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.workStep === value)));
+    $('#work-step-detail').textContent = workDescriptions[value];
+    if (canMove()) $('#work-step-detail').animate([{ opacity: .2, translate: '0 4px' }, { opacity: 1, translate: '0 0' }], { duration: 300 });
+    scheduleWork();
+  }
+  $$('[data-work-step]').forEach(button => button.addEventListener('click', () => changeWork(button.dataset.workStep)));
+  workMap.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') { workHovered = true; scheduleWork(); } });
+  workMap.addEventListener('pointerleave', event => { if (event.pointerType === 'mouse') { workHovered = false; scheduleWork(); } });
+  workMap.addEventListener('focusin', scheduleWork);
+  workMap.addEventListener('focusout', () => setTimeout(scheduleWork, 0));
+  if ('IntersectionObserver' in window) new IntersectionObserver(entries => { workVisible = entries[0].isIntersecting; scheduleWork(); }, { threshold: .3 }).observe(workMap);
+  document.addEventListener('visibilitychange', scheduleWork);
+  document.addEventListener('gopal:motion', scheduleWork);
+  const websiteKinds = {
+    business: 'A clear home for your business, services and contact details.',
+    landing: 'A focused page that introduces an offer and guides visitors to a conversation.',
+    portfolio: 'A personal website that brings your experience, work and public profiles together.'
+  };
+  $$('[data-web-kind]').forEach(button => button.addEventListener('click', () => {
+    state.webKind = button.dataset.webKind;
+    $$('[data-web-kind]').forEach(control => control.setAttribute('aria-pressed', String(control === button)));
+    $('#web-kind-feedback').textContent = websiteKinds[state.webKind];
+    renderComposer();
+    refreshScroll();
+  }));
+  const campaignGoals = {
+    enquiries: 'Campaign support and clear coordination around customer enquiries.',
+    presence: 'Campaign support that connects a business message with its digital presence.',
+    workflow: 'Email communication and practical coordination around digital campaign work.'
+  };
+  $$('[data-campaign-goal]').forEach(button => button.addEventListener('click', () => {
+    state.campaignGoal = button.dataset.campaignGoal;
+    $$('[data-campaign-goal]').forEach(control => control.setAttribute('aria-pressed', String(control === button)));
+    $('#campaign-goal-feedback').textContent = campaignGoals[state.campaignGoal];
+    renderComposer();
+    refreshScroll();
+  }));
+  $$('[data-career]').forEach((button, index) => {
+    button.setAttribute('aria-pressed', String(index === 0));
+    button.addEventListener('click', () => {
+      const entry = document.getElementById(button.dataset.career);
+      entry.open = true;
+      $$('[data-career]').forEach(control => control.setAttribute('aria-pressed', String(control === button)));
+      entry.scrollIntoView({ behavior: canMove() ? 'smooth' : 'instant', block: 'start' });
+      $('summary', entry).focus({ preventScroll: true });
+      refreshScroll();
+    });
+  });
+  const places = {
+    roots: 'Originally from Mohangarh, Beawar, Rajasthan. Rajasthan remains my preferred location for opportunities.',
+    base: 'Based in Bengaluru, Karnataka, with an outlook open to opportunities across India.'
+  };
+  $$('[data-location]').forEach(button => button.addEventListener('click', () => {
+    $$('[data-location]').forEach(control => control.setAttribute('aria-pressed', String(control === button)));
+    $('#location-detail').textContent = places[button.dataset.location];
+    if (canMove()) $('#location-detail').animate([{ opacity: .2 }, { opacity: 1 }], { duration: 280 });
+  }));
+  $$('.copy-message').forEach(button => button.addEventListener('click', () => $$('[data-composer-step="connect"]').forEach(element => element.classList.add('active'))));
+  theme(state.theme);
+  setInspector('profile');
+  renderComposer();
+  sizeCanvas();
+  motionChanged();
+  updateScroll();
+  document.fonts.ready.then(refreshScroll);
 })();
