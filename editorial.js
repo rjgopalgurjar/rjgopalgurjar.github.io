@@ -5,7 +5,7 @@
   const root=document.documentElement;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const finePointer=matchMedia('(hover: hover) and (pointer: fine)');
-  const state={theme:root.dataset.theme||'light',motion:true,track:'hiring',note:'',webKind:'business',focus:'',platform:'meta',inspector:'profile'};
+  const state={theme:root.dataset.theme||'dark',motion:true,track:'hiring',note:'',webKind:'business',focus:'',platform:'meta',inspector:'profile'};
   let motionPreference=true;
   try{motionPreference=localStorage.getItem('gopal-motion')!=='paused';}catch{}
   const canMove=()=>state.motion&&!reduced.matches;
@@ -20,8 +20,8 @@
   }
   function contact(){return {email:['Gopal1','gurjar'].join('')+'@'+['gmail','com'].join('.'),phone:['91','86900','62046'].join('')};}
   function setIcon(element,name){$('use',element).setAttribute('href','./icons-v2.svg#'+name);}
-  function theme(value){state.theme=value;root.dataset.theme=value;const dark=value==='dark',button=$('.theme-toggle');button.setAttribute('aria-pressed',String(dark));button.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');setIcon(button,dark?'sun':'moon');$('meta[name="theme-color"]').content=dark?'#0e1725':'#f8fafc';try{localStorage.setItem('gopal-theme',value);}catch{}}
-  $('.theme-toggle').addEventListener('click',()=>theme(state.theme==='light'?'dark':'light'));
+  function theme(value,persist=false){state.theme=value;root.dataset.theme=value;const dark=value==='dark',button=$('.theme-toggle');button.setAttribute('aria-pressed',String(dark));button.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');setIcon(button,dark?'sun':'moon');$('meta[name="theme-color"]').content=dark?'#0e1725':'#f8fafc';if(persist)try{localStorage.setItem('gopal-theme-choice',value);localStorage.setItem('gopal-theme',value);}catch{}}
+  $('.theme-toggle').addEventListener('click',()=>theme(state.theme==='light'?'dark':'light',true));
 
   const menu=$('#mobile-menu'),menuButton=$('.menu-toggle');
   function closeMenu(){menu.hidden=true;menuButton.setAttribute('aria-expanded','false');menuButton.setAttribute('aria-label','Open navigation');setIcon(menuButton,'menu');}
@@ -146,7 +146,7 @@
     {name:'Discuss campaign support',group:'Enquiry',terms:'digital google ads meta',action:()=>openInquiry('campaign')},
     {name:'Copy email address',group:'Action',terms:'contact',action:()=>copy(contact().email,'Email address copied')},
     {name:'Copy WhatsApp number',group:'Action',terms:'phone contact',action:()=>copy('+'+contact().phone,'WhatsApp number copied')},
-    {name:'Switch theme',group:'Appearance',terms:'light dark',action:()=>theme(state.theme==='light'?'dark':'light')},
+    {name:'Switch theme',group:'Appearance',terms:'light dark',action:()=>theme(state.theme==='light'?'dark':'light',true)},
     {name:'Toggle motion',group:'Appearance',terms:'pause animation reduced',action:()=>{if(!reduced.matches){motionPreference=!motionPreference;motionChanged();}}}
   ];
   function selectCommand(index){const options=$$('.command-option');if(!options.length){search.removeAttribute('aria-activedescendant');return;}commandIndex=(index+options.length)%options.length;options.forEach((option,i)=>option.setAttribute('aria-selected',String(i===commandIndex)));const option=options[commandIndex];search.setAttribute('aria-activedescendant',option.id);const list=$('#command-results'),top=option.offsetTop-list.offsetTop;if(top<list.scrollTop)list.scrollTop=top;else if(top+option.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=top+option.offsetHeight-list.clientHeight;}

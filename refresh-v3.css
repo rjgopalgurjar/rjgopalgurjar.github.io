@@ -8,3 +8,7 @@
 @media(max-width:767px){.meta-object{height:69%;top:13%}.meta-wordmark{font-size:15px;bottom:0}.brand-caption{bottom:7px;min-height:33px}.identity-more{top:2px;right:2px}}
 @media(max-width:767px){.hero-in-view .contact-float{opacity:0;pointer-events:none;visibility:hidden}.contact-float{width:52px;height:52px;min-width:52px;padding:14px;border-radius:50%}.contact-float>span{display:none}}
 @media(prefers-reduced-motion:reduce){.orb-logo,.developer-signature i:after{animation:none!important}.meta-object,.platform-orb{transform:none!important;translate:none!important}.platform-orb,.brand-orbit,.brand-aura,.identity-photo img{transition:none!important}}
+/* Compatibility for visitors with the earlier animated hero cached. */
+[data-theme=dark] .developer-hero h1>.headline-line{background:none;background-image:none;color:var(--ink);-webkit-text-fill-color:currentColor}
+[data-theme=dark] .developer-hero h1>.headline-accent{color:#78baff}
+[data-theme=dark] .developer-hero .headline-accent .hero-word{background:none;color:#78baff;-webkit-text-fill-color:#78baff}

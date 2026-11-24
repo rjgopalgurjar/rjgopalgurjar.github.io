@@ -15,3 +15,5 @@ Body copy remains steady. Section reveals are short and happen once. The platfor
 Fonts and icons are self-hosted; their licence files are retained. The site uses Space Grotesk, Inter, JetBrains Mono and the existing Lucide SVG subset. No third-party JavaScript runtime is required.
 
 Hosting remains GitHub Free with a public repository. SEO metadata, ProfilePage/Person and WebSite structured data, robots.txt and sitemap.xml are included. Indexing and ranking are controlled by search engines.
+
+Dark mode is the default. Explicit light/dark choices are saved separately from the previous automatic theme value, so an old default-light value does not override the new default.
