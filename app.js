@@ -128,11 +128,11 @@
   const snippets = {
     profile: {
       filename: 'gopal.profile.ts', language: 'TypeScript', caption: 'The person behind the work',
-      code: 'const gopal = {\n  name: "Gopal Gurjar",\n  role: "Marketing Executive",\n  base: "Bengaluru, India",\n  languages: ["Hindi", "English"],\n  digital: ["Web Development", "Coding"],\n  operations: ["SAP", "Tally", "Supply Chain"],\n  mindset: "Practical. Curious. Connected."\n};'
+      code: 'const gopal = {\n  name: "Gopal Gurjar",\n  focus: "Web Development & B2C Scaling",\n  base: "Bengaluru, India",\n  languages: ["Hindi", "English"],\n  digital: ["Web Development", "Coding"],\n  operations: ["SAP", "Tally", "Supply Chain"],\n  mindset: "Practical. Curious. Connected."\n};'
     },
     operations: {
-      filename: 'erp_logistics.log', language: 'Work context', caption: 'Areas of work · No live business data',
-      code: '# A connected operations checklist\nSAP         / portal management\nACCOUNTS    / Tally & purchase review\nDOCUMENTS   / Bills of Entry\nTAXATION    / checking the details\nINVENTORY   / keeping track\nDISPATCH    / clear coordination\nCUSTOMERS   / the next conversation\n# People, process and follow-through.'
+      filename: 'growth.map', language: 'B2C journey', caption: 'From a useful experience to a clear next step',
+      code: '# A connected B2C customer journey\nBUILD       / responsive interfaces\nCOMMERCE    / storefront experiences\nDISCOVER    / search presence\nCAMPAIGNS   / Meta campaign support\nCONNECT     / a clear enquiry path\nFOLLOW-UP   / email workflows\n# Code. Connect. Scale.'
     },
     automation: {
       filename: 'automate.ps1', language: 'PowerShell', caption: 'Illustrative read-only diagnostic snippet',
@@ -236,27 +236,15 @@
   }
   $('.copy-code').addEventListener('click', () => copy(snippets[state.inspector].code, 'Snippet copied'));
 
-  function preview(value) {
-    $$('[data-preview]').forEach(tab => {
-      const active = tab.dataset.preview === value;
-      tab.setAttribute('aria-selected', String(active));
-      tab.tabIndex = active ? 0 : -1;
-      $('#preview-panel-' + tab.dataset.preview).hidden = !active;
-    });
-    if (canMove()) $('#preview-panel-' + value).animate([{ opacity: .2 }, { opacity: 1 }], { duration: 240 });
-  }
-  $$('[data-preview]').forEach(tab => tab.addEventListener('click', () => preview(tab.dataset.preview)));
-  keyboardTabs($$('[data-preview]'), 'preview', preview);
-
   const tracks = {
     hiring: { subject: 'Professional opportunity', text: 'Hi Gopal, I’d like to discuss a full-time role or professional opportunity in marketing, accounts or operations.' },
     web: { subject: 'Web development project', text: 'Hi Gopal, I’d like to discuss a web development project for my business or personal brand.' },
-    campaign: { subject: 'Meta campaign and digital support', text: 'Hi Gopal, I’d like to discuss Meta campaign support and digital communication workflows.' }
+    campaign: { subject: 'Google Ads, Meta campaign and digital support', text: 'Hi Gopal, I’d like to discuss Google Ads, Meta campaign support and digital communication workflows.' }
   };
   const draft = () => {
     let text = tracks[state.track].text;
     if (state.track === 'web') text = 'Hi Gopal, I’d like to discuss ' + ({ business: 'a business website', landing: 'a landing page', portfolio: 'a personal portfolio website' }[state.webKind]) + '.';
-    if (state.track === 'campaign') text = 'Hi Gopal, I’d like to discuss Meta campaign and digital support focused on ' + ({ enquiries: 'customer enquiries', presence: 'brand presence', workflow: 'communication workflows' }[state.campaignGoal]) + '.';
+    if (state.track === 'campaign') text = 'Hi Gopal, I’d like to discuss Google Ads, Meta campaign and digital support focused on ' + ({ enquiries: 'customer enquiries', presence: 'brand presence', workflow: 'communication workflows' }[state.campaignGoal]) + '.';
     return text + (state.note.trim() ? '\n\n' + state.note.trim() : '\n\nLet’s connect about the details.');
   };
   ['inline', 'dialog'].forEach(prefix => {
@@ -361,7 +349,6 @@
     { id: 'copy-phone', group: 'Quick actions', name: 'Copy WhatsApp number', keywords: 'phone mobile contact', glyph: 'copy', action: () => copy('+' + contact().phone, 'WhatsApp number copied') },
     { id: 'theme', group: 'Quick actions', name: 'Switch light / dark theme', keywords: 'appearance display mode', glyph: 'sun', action: () => theme(state.theme === 'light' ? 'dark' : 'light') },
     { id: 'motion', group: 'Quick actions', name: 'Pause / resume ambient motion', keywords: 'animation reduce movement', glyph: 'pause', action: () => { state.motion = !state.motion; motionChanged(); } },
-    { id: 'github', group: 'Public profiles', name: 'Open GitHub profile', keywords: 'code source repository', glyph: 'code-xml', hint: 'Opens a new tab', action: () => window.open('https://github.com/rjgopalgurjar', '_blank', 'noopener,noreferrer') },
     { id: 'linkedin', group: 'Public profiles', name: 'Connect on LinkedIn', keywords: 'professional profile', glyph: 'briefcase-business', hint: 'Opens a new tab', action: () => window.open('https://www.linkedin.com/in/rjgopalgurjar/', '_blank', 'noopener,noreferrer') }
   ];
   function selectCommand(index) {
@@ -584,17 +571,12 @@
       }
       return { x, y };
     });
+    const glyphs = ['</>', '{ }', 'const', '=>', '01', 'build()', '<div>', 'return'];
     positions.forEach((node, index) => {
-      const fade = node.x < canvasWidth * .5 ? .35 : 1;
-      for (let other = index + 1; other < positions.length; other++) {
-        const next = positions[other];
-        const distance = Math.hypot(node.x - next.x, node.y - next.y);
-        if (distance > 190) continue;
-        context.strokeStyle = 'rgba(' + rgb + ',' + ((1 - distance / 190) * .19 * fade).toFixed(3) + ')';
-        context.lineWidth = .65; context.beginPath(); context.moveTo(node.x, node.y); context.lineTo(next.x, next.y); context.stroke();
-      }
-      context.fillStyle = 'rgba(' + rgb + ',' + (.32 * fade).toFixed(2) + ')';
-      context.beginPath(); context.arc(node.x, node.y, index % 4 === 0 ? 2.5 : 1.5, 0, Math.PI * 2); context.fill();
+      const fade = node.x < canvasWidth * .5 ? .3 : .7;
+      context.fillStyle = 'rgba(' + rgb + ',' + ((dark ? .23 : .19) * fade).toFixed(3) + ')';
+      context.font = (index % 3 === 0 ? '16' : '12') + 'px "JetBrains Mono", monospace';
+      context.fillText(glyphs[index % glyphs.length], node.x, node.y);
     });
     if (animated) {
       ripples = ripples.filter(ripple => time - ripple.time < 900);
@@ -633,7 +615,7 @@
   else addEventListener('resize', sizeCanvas);
 
   if ('IntersectionObserver' in window) {
-    new IntersectionObserver(entries => { heroVisible = entries[0].isIntersecting; syncCanvas(); }, { threshold: 0 }).observe(hero);
+    new IntersectionObserver(entries => { heroVisible = entries[0].isIntersecting; root.classList.toggle('hero-in-view', heroVisible); syncCanvas(); }, { threshold: 0 }).observe(hero);
     new IntersectionObserver(entries => {
       inspectorVisible = entries[0].isIntersecting && entries[0].intersectionRatio >= .25;
       scheduleInspector();
